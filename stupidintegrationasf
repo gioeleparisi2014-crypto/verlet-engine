@@ -1,0 +1,103 @@
+class VerletEngine {
+    constructor(width, height) {
+        this.width = width;
+        this.height = height;
+        this.points = [];
+        this.constraints = [];
+        this.gravity = 0.5;
+        this.bounce = 0.8;
+        this.friction = 0.99;
+    }
+
+    addPoint(x, y, pinned = false) {
+        const p = {
+            x: x,
+            y: y,
+            oldX: x,
+            y: y, // typo fix, keep consistent
+            oldX: x,
+            oldY: y,
+            pinned: pinned
+        };
+        this.points.push(p);
+        return p;
+    }
+
+    addConstraint(p1, p2, length = null) {
+        const dx = p1.x - p2.x;
+        const dy = p1.y - p2.y;
+        const dist = length !== null ? length : Math.sqrt(dx * dx + dy * dy);
+        
+        const c = { p1, p2, length: dist };
+        this.constraints.push(c);
+        return c;
+    }
+
+    update() {
+        // 1. Aggiorna posizioni (Integrazione di Verlet)
+        for (let i = 0; i < this.points.length; i++) {
+            let p = this.points[i];
+            if (p.pinned) continue;
+
+            let vx = (p.x - p.oldX) * this.friction;
+            let vy = (p.y - p.oldY) * this.friction;
+
+            p.oldX = p.x;
+            p.oldY = p.y;
+
+            p.x += vx;
+            p.y += vy + this.gravity;
+        }
+
+        // 2. Risolvi i vincoli (più iterazioni per stabilità)
+        const iterations = 5;
+        for (let iter = 0; iter < iterations; iter++) {
+            for (let i = 0; i < this.constraints.length; i++) {
+                let c = this.constraints[i];
+                let dx = c.p2.x - c.p1.x;
+                let dy = c.p2.y - c.p1.y;
+                let distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance === 0) continue;
+
+                let difference = c.length - distance;
+                let percent = difference / distance / 2;
+                let offsetX = dx * percent;
+                let offsetY = dy * percent;
+
+                if (!c.p1.pinned) {
+                    c.p1.x -= offsetX;
+                    c.p1.y -= offsetY;
+                }
+                if (!c.p2.pinned) {
+                    c.p2.x += offsetX;
+                    c.p2.y += offsetY;
+                }
+            }
+
+            // 3. Collisioni con i bordi dello schermo
+            for (let i = 0; i < this.points.length; i++) {
+                let p = this.points[i];
+                if (p.pinned) continue;
+
+                let vx = (p.x - p.oldX) * this.friction;
+                let vy = (p.y - p.oldY) * this.friction;
+
+                if (p.x < 0) {
+                    p.x = 0;
+                    p.oldX = p.x + vx * this.bounce;
+                } else if (p.x > this.width) {
+                    p.x = this.width;
+                    p.oldX = p.x + vx * this.bounce;
+                }
+
+                if (p.y < 0) {
+                    p.y = 0;
+                    p.oldY = p.y + vy * this.bounce;
+                } else if (p.y > this.height) {
+                    p.y = this.height;
+                    p.oldY = p.y + vy * this.bounce;
+                }
+            }
+        }
+    }
+}
